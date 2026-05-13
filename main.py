@@ -1,4 +1,3 @@
-# main.py - WITH PROPER DEBOUNCE
 import RPi.GPIO as GPIO
 import time
 from board import SDA, SCL
@@ -10,6 +9,8 @@ import adafruit_ads1x15.ads1115 as ADS
 from adafruit_ads1x15.analog_in import AnalogIn
 from w1thermsensor import W1ThermSensor
 from simple_pid import PID
+import bluetooth
+import my_bluetooth
 
 # Mock camera for development
 try:
@@ -76,6 +77,7 @@ counting_mode = False
 tds_ppm = 0
 water_percent = 0
 temperature = 0
+fish_count = 0
 
 # Button debounce variables
 last_button_state = GPIO.HIGH  # Start with NOT pressed (PUD_UP = HIGH when not pressed)
@@ -100,6 +102,10 @@ sensor_timer = TaskTimer(2.0)          # Read sensors every 2 seconds
 display_timer = TaskTimer(1.0)         # Update display every 1 second
 control_timer = TaskTimer(0.5)         # PID control every 0.5 seconds
 camera_timer = TaskTimer(60.0)         # Take photo every minute
+
+#Bluetooth setup
+bt_client_sock = None
+my_bluetooth.setup_bluetooth()
 
 print("System Started!")
 print(f"Camera: {'REAL' if USE_REAL_CAMERA else 'MOCK'}")
@@ -137,7 +143,13 @@ while True:
         temperature = temperature_sensor.get_temperature()
         
         print(f"📊 Sensors: {temperature:.1f}°C, {tds_ppm:.0f}ppm, {water_percent:.0f}%")
-    
+        my_bluetooth.send_bluetooth_data(temperature, tds_ppm, water_percent,
+                            fish_count=fish_count,
+                            counting_mode=counting_mode,
+                            relay_heater=GPIO.input(RELAY_HEATER),
+                            relay_pump=GPIO.input(RELAY_PUMP),
+                            relay_valve=GPIO.input(RELAY_VALVE))
+        
     # === PID CONTROL ===
     if control_timer.check():
         if counting_mode:
